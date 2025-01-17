@@ -31,7 +31,7 @@ public class AuthController : MainController
     public async Task<ActionResult> Register(RegisterUserViewModel registerUser)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState.Values.SelectMany(e => e.Errors).Select(e => e.ErrorMessage));
+            return CustomResponse(ModelState);
 
         var user = new IdentityUser
         {
@@ -43,30 +43,31 @@ public class AuthController : MainController
         var result = await _userManager.CreateAsync(user, registerUser.Password);
 
         if(!result.Succeeded)
-            return BadRequest(result.Errors);
+        {
+            return CustomResponse(result);
+        }
 
         await _signInManager.SignInAsync(user, false);
         
-        return Ok(GenerateJwtToken(user.Email));
+        var data = GenerateJwtToken(user.Email).Result;
+        return CustomResponse(data);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult> Login(LoginUserViewModel loginUser)
     {
         if(!ModelState.IsValid)
-            return BadRequest(ModelState.Values.SelectMany(e => e.Errors).Select(e => e.ErrorMessage));
+            return CustomResponse(ModelState);
 
         var result = await _signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, true);
         
         if(result.Succeeded)
         {
-            return Ok(GenerateJwtToken(loginUser.Email).Result);
+            var data = GenerateJwtToken(loginUser.Email).Result;
+            return CustomResponse(data);
         }
 
-        if (result.IsLockedOut)
-            return BadRequest("User is locked out temporarily");
-
-        return BadRequest("Invalid user or password");
+        return CustomResponse(result);
     }
 
     private async Task<LoginResponseViewModel> GenerateJwtToken(string email)
@@ -105,7 +106,7 @@ public class AuthController : MainController
         var response = new LoginResponseViewModel
         {
             AccessToken = encodedToken,
-            ExpiresIn = TimeSpan.FromHours(_appSettings.ExpirationInMinutes).TotalSeconds
+            ExpiresIn = TimeSpan.FromHours(_appSettings.ExpirationInMinutes).TotalMinutes
         };
 
         return response;
@@ -118,7 +119,7 @@ public class AuthController : MainController
 }
 
 
-//Test controller
+//Controller test
 [Authorize]
 public class UserController : MainController
 {
