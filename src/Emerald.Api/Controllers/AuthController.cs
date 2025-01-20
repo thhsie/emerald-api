@@ -70,6 +70,21 @@ public class AuthController : MainController
         return CustomResponse(result);
     }
 
+    [Authorize]
+    [HttpPost("reset-password")]
+    public async Task<ActionResult> ResetPassword(ResetPasswordViewModel resetPassword)
+    {
+        if(!ModelState.IsValid)
+            return CustomResponse(ModelState);
+
+        var user = await _userManager.FindByEmailAsync(resetPassword.Email);
+
+        if (user != null)
+            await _userManager.ChangePasswordAsync(user, resetPassword.CurrentPassword, resetPassword.NewPassword);
+
+        return CustomResponse();
+    }
+
     private async Task<LoginResponseViewModel> GenerateJwtToken(string email)
     {
         var user = await _userManager.FindByEmailAsync(email);
@@ -115,27 +130,5 @@ public class AuthController : MainController
     private static long ToUnixEpochDate(DateTime date)
     {
         return (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
-    }
-}
-
-
-//Controller test
-[Authorize]
-public class UserController : MainController
-{
-    public readonly UserManager<IdentityUser> _userManager;
-
-    public UserController(UserManager<IdentityUser> userManager)
-    {
-        _userManager = userManager;
-    }
-
-    [ClaimsAuthorize("admin", "read")]
-    [HttpGet("user")]
-    public async Task<ActionResult> GetUser()
-    {
-        var user = await _userManager.FindByEmailAsync("bianor.araujo@gmail.com");
-        
-        return Ok(user);
     }
 }
