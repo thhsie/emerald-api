@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Emerald.Api.Extensions;
+using Emerald.Api.Interfaces;
 using Emerald.Api.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -17,14 +18,17 @@ public class AuthController : MainController
     public readonly SignInManager<IdentityUser> _signInManager;
     public readonly UserManager<IdentityUser> _userManager;
     public readonly AppSettings _appSettings;
+    public readonly IEmailSender _emailSender;
 
     public AuthController(SignInManager<IdentityUser> signInManager,
                           UserManager<IdentityUser> userManager,
-                          IOptions<AppSettings> appSettings)
+                          IOptions<AppSettings> appSettings,
+                          IEmailSender emailSender)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _appSettings = appSettings.Value;
+        _emailSender = emailSender;
     }
 
     [HttpPost("register")]
@@ -37,19 +41,30 @@ public class AuthController : MainController
         {
             UserName = registerUser.Email,
             Email = registerUser.Email,
-            EmailConfirmed = true
+            EmailConfirmed = !registerUser.SendEmailConfirmation
         };
 
-        var result = await _userManager.CreateAsync(user, registerUser.Password);
+        var createResult = await _userManager.CreateAsync(user, registerUser.Password);
 
-        if(!result.Succeeded)
+        if(!createResult.Succeeded)
         {
-            return CustomResponse(result);
+            return CustomResponse(createResult);
+        }
+
+        if(registerUser.SendEmailConfirmation)
+        {
+            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var callbackUrl = Url.Action("ConfirmEmail", "Auth", new { userId = user.Id, code }, Request.Scheme);
+            var emailTo = user.Email;
+            var subject = "Confirm your email";
+
+            await _emailSender.SendEmailAsync(emailTo, subject, callbackUrl!);
         }
 
         await _signInManager.SignInAsync(user, false);
         
         var data = GenerateJwtToken(user.Email).Result;
+
         return CustomResponse(data);
     }
 
@@ -82,12 +97,75 @@ public class AuthController : MainController
         if (user != null)
             await _userManager.ChangePasswordAsync(user, resetPassword.CurrentPassword, resetPassword.NewPassword);
 
-        return CustomResponse();
+        return CustomResponse("Password reseted successfully", true);
     }
+
+    [HttpGet("confirm-email")]
+    public async Task<ActionResult> ConfirmEmail(string userId, string code)
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
+            return CustomResponse("Invalid email verification", false);
+
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if(user == null)
+            return CustomResponse("Invalid email verification", false);
+        
+        var verificationResult = await _userManager.ConfirmEmailAsync(user, code);
+
+        if (verificationResult.Succeeded)
+            return CustomResponse("Email confirmed successfully", true);
+
+        return CustomResponse(verificationResult);
+    }
+
+    [Authorize]
+    [HttpGet("token-validation")]
+    public async Task<ActionResult> TokenValidation()
+    {
+        return CustomResponse("Token is valid", true);
+    }
+
+    [HttpGet("send-email")]
+    public async Task<ActionResult> SendEmail(UserRequestViewModel userRequest)
+    {
+
+        var user = await _userManager.FindByEmailAsync(userRequest.Email);
+
+        if (user == null)
+            return CustomResponse("User not found", false);
+
+        var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var callbackUrl = Url.Action("ConfirmEmail", "Auth", new { userId = user.Id, code }, Request.Scheme);
+        var emailTo = user.Email;
+        var subject = "Confirm your email";
+
+        var result = await _emailSender.SendEmailAsync(emailTo!, subject, callbackUrl!);
+        
+        return CustomResponse(result ? "Email sent successfully" : "Error sending email", result);
+    }
+
+    [Authorize]
+    [HttpPost("user")]
+    public async Task<ActionResult> GetUser(UserRequestViewModel userRequest)
+    {
+        var user = await _userManager.FindByEmailAsync(userRequest.Email);
+
+        if (user == null)
+            return CustomResponse("User not found", false);
+
+        return CustomResponse(user);
+    }
+
+    
 
     private async Task<LoginResponseViewModel> GenerateJwtToken(string email)
     {
         var user = await _userManager.FindByEmailAsync(email);
+        
+        if (user == null)
+            return null;
+
         var claims = await _userManager.GetClaimsAsync(user);
         var userRoles = await _userManager.GetRolesAsync(user);
 
@@ -121,7 +199,8 @@ public class AuthController : MainController
         var response = new LoginResponseViewModel
         {
             AccessToken = encodedToken,
-            ExpiresIn = TimeSpan.FromHours(_appSettings.ExpirationInMinutes).TotalMinutes
+            ExpiresIn = TimeSpan.FromHours(_appSettings.ExpirationInMinutes).TotalMinutes,
+            User = user
         };
 
         return response;

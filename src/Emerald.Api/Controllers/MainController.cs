@@ -7,12 +7,42 @@ namespace Emerald.Api.Controllers;
 [ApiController]
 public abstract class MainController : ControllerBase
 {
+    protected ActionResult CustomResponse(object data, bool success = true)
+    {
+        var response = new
+        {
+            Success = success,
+            Data = data
+        };
+
+        if(!success)
+            return BadRequest(response);
+
+        return Ok(response);
+    }
+
+    protected ActionResult CustomResponse(string message, bool success)
+    {
+        if(!success)
+            return BadRequest(new
+            {
+                Success = false,
+                Errors = new List<string> { message }
+            });
+
+        return Ok(new 
+            {
+                Success = true,
+                Message = message
+            });
+    }
+
     protected ActionResult CustomResponse(ModelStateDictionary modelState)
     {
         return BadRequest(new
         {
-            success = false,
-            errors = modelState.Values.SelectMany(e => e.Errors).Select(e => e.ErrorMessage)
+            Success = false,
+            Errors = modelState.Values.SelectMany(e => e.Errors).Select(e => e.ErrorMessage)
         });
     }
 
@@ -20,17 +50,8 @@ public abstract class MainController : ControllerBase
     {
         return BadRequest(new
         {
-            success = false,
-            errors = result.Errors.Select(e => e.Description)
-        });
-    }
-
-    protected ActionResult CustomResponse(object result = null)
-    {
-        return Ok(new
-        {
-            success = true,
-            data = result
+            Success = false,
+            Errors = result.Errors.Select(e => e.Description)
         });
     }
 
