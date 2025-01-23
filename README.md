@@ -17,6 +17,17 @@ In the final version, you'll be able to manage users, passwords, profile data, r
 * SQL Server
 * Docker
 
+### Contributing
+
+Contributions are welcome.
+
+How to setup for development:
+
+1. Fork the repository
+2. Build the project: $ dotnet build
+4. Run the development server: $ dotnet run
+5. Open your browser: http://localhost:5252/scalar/v1
+6. Submit your PR when finishing the changes
 
 ### Images
 
