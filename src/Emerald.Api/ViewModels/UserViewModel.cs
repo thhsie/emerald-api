@@ -16,6 +16,8 @@ namespace Emerald.Api.ViewModels
         [Required(ErrorMessage = "The field {0} is required")]
         [Compare("Password", ErrorMessage = "The passwords do not match")]
         public string ConfirmPassword { get; set; } = string.Empty;
+
+        public bool SendEmailConfirmation { get; set; } = false;
     }
 
     public class LoginUserViewModel
@@ -48,5 +50,11 @@ namespace Emerald.Api.ViewModels
     {
         public string AccessToken { get; set; } = string.Empty;
         public double ExpiresIn { get; set; }
+        public object User { get; set; }
+    }
+
+    public class UserRequestViewModel
+    {
+        public string Email { get; set; } = string.Empty;
     }
 }

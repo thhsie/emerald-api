@@ -1,5 +1,7 @@
 using Emerald.Api.Configuration;
 using Emerald.Api.Data;
+using Emerald.Api.Extensions;
+using Emerald.Api.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -23,6 +25,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
 });
+
+builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 var app = builder.Build();
 
