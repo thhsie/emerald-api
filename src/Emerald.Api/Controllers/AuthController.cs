@@ -157,6 +157,11 @@ public class AuthController : MainController
         return CustomResponse(user);
     }
 
+    [HttpGet("check")]
+    public async Task<ActionResult> Check()
+    {
+        return CustomResponse("API is running", true);
+    }
     
 
     private async Task<LoginResponseViewModel> GenerateJwtToken(string email)
