@@ -1,35 +1,33 @@
 using Emerald.Api.Configuration;
 using Emerald.Api.Data;
+using Emerald.Api.Endpoints;
 using Emerald.Api.Extensions;
 using Emerald.Api.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi((options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+}));
+
+builder.Services.AddProblemDetails();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+    options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
 
 builder.Services.AddIdentityConfig(builder.Configuration);
-
-builder.Services.Configure<ApiBehaviorOptions>(options =>
-{
-    options.SuppressModelStateInvalidFilter = true;
-});
-
-builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
+builder.Services.AddTransient<IEmailSender, FakeEmailSender>();
 
 var app = builder.Build();
 
 app.MapOpenApi();
-app.MapScalarApiReference(option => {
+app.MapScalarApiReference(option =>
+{
     option
         .WithTitle("Auth API")
         .WithTheme(ScalarTheme.BluePlanet)
@@ -37,10 +35,21 @@ app.MapScalarApiReference(option => {
         .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
 });
 
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseHttpsRedirection();
-app.MapControllers();
+// Map endpoint groups
+app.MapAuthEndpoints();
+app.MapUserEndpoints();
+app.MapEmailEndpoints();
+
+// Common endpoints
+app.MapGet("/auth/check", () =>
+    Results.Ok(new { Success = true, Message = "API is running" }));
+
+app.MapGet("/auth/token-validation", () =>
+    Results.Ok(new { Success = true, Message = "Token is valid" }))
+    .RequireAuthorization();
 
 app.Run();

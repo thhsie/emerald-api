@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Net.Mail;
 using Emerald.Api.Interfaces;
@@ -66,7 +65,8 @@ public class EmailSender : IEmailSender
 
             await smtp.SendMailAsync(mailMessage);
         }
-        catch{
+        catch
+        {
             return false;
         }
 
