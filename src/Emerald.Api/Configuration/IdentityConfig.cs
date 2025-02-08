@@ -20,7 +20,6 @@ namespace Emerald.Api.Configuration
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
-            //JWT
             var appSettingsSection = configuration.GetSection("AppSettings");
             services.Configure<AppSettings>(appSettingsSection);
 
@@ -35,7 +34,8 @@ namespace Emerald.Api.Configuration
             {
                 x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(x =>
+            })
+            .AddJwtBearer(x =>
             {
                 x.RequireHttpsMetadata = true;
                 x.SaveToken = true;
@@ -48,6 +48,12 @@ namespace Emerald.Api.Configuration
                     ValidateAudience = true,
                     ValidAudience = appSettings.Audience
                 };
+            })
+            .AddGoogle(options =>
+            {
+                options.ClientId = configuration["Google:ClientId"]!;
+                options.ClientSecret = configuration["Google:ClientSecret"]!;
+                options.CallbackPath = "/signin-google";
             });
 
             services.AddAuthorizationBuilder();

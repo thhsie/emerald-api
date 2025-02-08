@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Emerald.Api.Extensions;
 using Emerald.Api.Interfaces;
 using Emerald.Api.Utils;
 using Emerald.Api.ViewModels;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -21,8 +23,10 @@ public static class AuthEndpoints
             [FromServices] IEmailSender emailSender,
             [FromServices] IOptions<AppSettings> appSettings) =>
         {
-            return await RegisterUser(registerUser, userManager, signInManager, emailSender, appSettings);
-        }).Produces(200).ProducesProblem(400);
+            return await RegisterAsync(registerUser, userManager, signInManager, emailSender, appSettings);
+        })
+        .Produces(200)
+        .ProducesProblem(400);
 
         group.MapPost("/login", async (
             [FromBody] LoginUserViewModel loginUser,
@@ -30,13 +34,65 @@ public static class AuthEndpoints
             [FromServices] SignInManager<IdentityUser> signInManager,
             [FromServices] IOptions<AppSettings> appSettings) =>
         {
-            return await LoginUser(loginUser, userManager, signInManager, appSettings);
-        }).Produces(200).ProducesProblem(400);
+            return await LoginAsync(loginUser, userManager, signInManager, appSettings);
+        })
+        .Produces(200)
+        .ProducesProblem(400);
+
+        group.MapGet("/google-login", async (HttpContext context) =>
+        {
+            await context.ChallengeAsync("Google", new AuthenticationProperties
+            {
+                RedirectUri = "/auth/google-callback"
+            });
+        });
+
+        group.MapGet("/google-callback", async (
+            HttpContext context,
+            [FromServices] UserManager<IdentityUser> userManager,
+            [FromServices] IOptions<AppSettings> appSettings) =>
+        {
+            return await GoogleLoginAsync(context, userManager, appSettings);
+        });
 
         return group;
     }
 
-    private static async Task<IResult> RegisterUser(
+    #region private external-auth
+    private static async Task<IResult> GoogleLoginAsync(
+        HttpContext context,
+        UserManager<IdentityUser> userManager,
+        IOptions<AppSettings> appSettings)
+    {
+        var authenticateResult = await context.AuthenticateAsync("Google");
+        if (!authenticateResult.Succeeded)
+            return Results.Unauthorized();
+
+        var email = authenticateResult.Principal.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrEmpty(email))
+            return Results.BadRequest("Unable to retrieve email from Google account");
+
+        var user = await userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            user = new IdentityUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
+            var result = await userManager.CreateAsync(user);
+            if (!result.Succeeded)
+                return Results.BadRequest(new { Success = false, Errors = result.Errors.Select(e => e.Description) });
+        }
+
+        var token = await JwtUtils.GenerateJwtToken(email, userManager, appSettings.Value);
+        return Results.Ok(new { Success = true, Data = token });
+    }
+    #endregion
+
+    #region private internal-auth
+    private static async Task<IResult> RegisterAsync(
         RegisterUserViewModel registerUser,
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
@@ -67,7 +123,7 @@ public static class AuthEndpoints
         return Results.Ok(new { Success = true, Data = token });
     }
 
-    private static async Task<IResult> LoginUser(
+    private static async Task<IResult> LoginAsync(
         LoginUserViewModel loginUser,
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
@@ -82,4 +138,5 @@ public static class AuthEndpoints
         var token = await JwtUtils.GenerateJwtToken(loginUser.Email, userManager, appSettings.Value);
         return Results.Ok(new { Success = true, Data = token });
     }
+    #endregion
 }

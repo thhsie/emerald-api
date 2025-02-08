@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Emerald.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250202152919_Sqlite")]
-    partial class Sqlite
+    [Migration("20250208143001_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

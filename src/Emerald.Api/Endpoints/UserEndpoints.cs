@@ -8,21 +8,25 @@ public static class UserEndpoints
 {
     public static RouteGroupBuilder MapUserEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/auth").WithTags("User Management");
+        var group = app.MapGroup("/auth").WithTags("User management");
 
         group.MapPost("/reset-password", async (
             [FromBody] ResetPasswordViewModel resetPassword,
             [FromServices] UserManager<IdentityUser> userManager) =>
         {
             return await ResetPassword(resetPassword, userManager);
-        }).RequireAuthorization().Produces(200).ProducesProblem(400);
+        })
+        .RequireAuthorization()
+        .Produces(200)
+        .ProducesProblem(400);
 
         group.MapGet("/user", async (
             [FromQuery] string email,
             [FromServices] UserManager<IdentityUser> userManager) =>
         {
             return await GetUser(email, userManager);
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization();
 
         return group;
     }

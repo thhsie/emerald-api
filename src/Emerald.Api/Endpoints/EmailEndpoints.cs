@@ -8,7 +8,7 @@ public static class EmailEndpoints
 {
     public static RouteGroupBuilder MapEmailEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/auth").WithTags("Email Services");
+        var group = app.MapGroup("/auth").WithTags("Email services");
 
         group.MapGet("/confirm-email", async (
             [FromQuery] string userId,
