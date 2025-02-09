@@ -5,7 +5,6 @@ using Emerald.Api.Utils;
 using Emerald.Api.ViewModels;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Emerald.Api.Endpoints;
@@ -16,50 +15,30 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/auth").WithTags("Authentication");
 
-        group.MapPost("/register", async (
-            [FromBody] RegisterUserViewModel registerUser,
-            [FromServices] UserManager<IdentityUser> userManager,
-            [FromServices] SignInManager<IdentityUser> signInManager,
-            [FromServices] IEmailSender emailSender,
-            [FromServices] IOptions<AppSettings> appSettings) =>
-        {
-            return await RegisterAsync(registerUser, userManager, signInManager, emailSender, appSettings);
-        })
+        group.MapPost("/register", RegisterAsync)
         .Produces(200)
         .ProducesProblem(400);
 
-        group.MapPost("/login", async (
-            [FromBody] LoginUserViewModel loginUser,
-            [FromServices] UserManager<IdentityUser> userManager,
-            [FromServices] SignInManager<IdentityUser> signInManager,
-            [FromServices] IOptions<AppSettings> appSettings) =>
-        {
-            return await LoginAsync(loginUser, userManager, signInManager, appSettings);
-        })
+        group.MapPost("/login", LoginAsync)
         .Produces(200)
         .ProducesProblem(400);
 
-        group.MapGet("/google-login", async (HttpContext context) =>
-        {
-            await context.ChallengeAsync("Google", new AuthenticationProperties
-            {
-                RedirectUri = "/auth/google-callback"
-            });
-        });
-
-        group.MapGet("/google-callback", async (
-            HttpContext context,
-            [FromServices] UserManager<IdentityUser> userManager,
-            [FromServices] IOptions<AppSettings> appSettings) =>
-        {
-            return await GoogleLoginAsync(context, userManager, appSettings);
-        });
+        group.MapGet("/google-login", GoogleLoginAsync);
+        group.MapGet("/google-callback", GoogleCallbackAsync);
 
         return group;
     }
 
     #region private external-auth
-    private static async Task<IResult> GoogleLoginAsync(
+    private static async Task GoogleLoginAsync(HttpContext context)
+    {
+        await context.ChallengeAsync("Google", new AuthenticationProperties
+        {
+            RedirectUri = "/auth/google-callback"
+        });
+    }
+
+    private static async Task<IResult> GoogleCallbackAsync(
         HttpContext context,
         UserManager<IdentityUser> userManager,
         IOptions<AppSettings> appSettings)

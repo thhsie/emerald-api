@@ -1,6 +1,5 @@
 using Emerald.Api.Interfaces;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Emerald.Api.Endpoints;
 
@@ -9,27 +8,13 @@ public static class EmailEndpoints
     public static RouteGroupBuilder MapEmailEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/auth").WithTags("Email services");
-
-        group.MapGet("/confirm-email", async (
-            [FromQuery] string userId,
-            [FromQuery] string code,
-            [FromServices] UserManager<IdentityUser> userManager) =>
-        {
-            return await ConfirmEmail(userId, code, userManager);
-        });
-
-        group.MapGet("/send-email", async (
-            [FromQuery] string email,
-            [FromServices] UserManager<IdentityUser> userManager,
-            [FromServices] IEmailSender emailSender) =>
-        {
-            return await SendEmail(email, userManager, emailSender);
-        });
+        group.MapGet("/confirm-email", ConfirmEmailAsync);
+        group.MapGet("/send-email", SendEmailAsync);
 
         return group;
     }
 
-    private static async Task<IResult> ConfirmEmail(
+    private static async Task<IResult> ConfirmEmailAsync(
         string userId,
         string code,
         UserManager<IdentityUser> userManager)
@@ -44,7 +29,7 @@ public static class EmailEndpoints
             : Results.BadRequest(new { Success = false, Errors = result.Errors.Select(e => e.Description) });
     }
 
-    private static async Task<IResult> SendEmail(
+    private static async Task<IResult> SendEmailAsync(
         string email,
         UserManager<IdentityUser> userManager,
         IEmailSender emailSender)
